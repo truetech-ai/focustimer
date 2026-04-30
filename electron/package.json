@@ -1,0 +1,59 @@
+{
+  "name": "pomodoropet-desktop",
+  "version": "2.0.0",
+  "description": "PomodoroPet - Arcade Focus Timer Desktop App",
+  "main": "main/main.cjs",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "build": "vite build",
+    "dist": "vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "gifuct-js": "^2.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.1.0",
+    "cross-env": "^10.1.0",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "typescript": "~5.8.3",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.pomodoropet.app",
+    "productName": "PomodoroPet",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main/**/*",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public/gifs",
+        "to": "public/gifs"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}
