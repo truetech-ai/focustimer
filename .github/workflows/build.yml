@@ -50,7 +50,9 @@ jobs:
           cache-dependency-path: electron/package-lock.json
 
       - name: Install build deps
-        run: sudo apt-get install -y rpm fakeroot snapcraft
+        run: |
+          sudo apt-get install -y rpm fakeroot
+          sudo snap install snapcraft --classic
 
       - name: Install dependencies
         working-directory: electron
