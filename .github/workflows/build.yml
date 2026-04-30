@@ -77,5 +77,9 @@ jobs:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
           SNAPCRAFT_STORE_AUTH: candid
         run: |
-          snap_file=$(ls electron/release/*.snap | head -1)
-          snapcraft upload "$snap_file" --release=stable
+          snap_file=$(ls electron/release/*.snap 2>/dev/null | head -1)
+          if [ -n "$snap_file" ]; then
+            snapcraft upload "$snap_file" --release=stable
+          else
+            echo "No .snap file found, skipping upload"
+          fi
