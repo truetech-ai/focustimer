@@ -1,17 +1,31 @@
 {
-  "name": "pomodoropet-desktop",
+  "name": "pomodoropet",
   "version": "2.0.0",
   "description": "PomodoroPet - Arcade Focus Timer Desktop App",
   "main": "main/main.cjs",
-  "private": true,
+  "private": false,
+  "bin": {
+    "pomodoropet": "bin/pomodoropet.cjs"
+  },
+  "files": [
+    "bin/**/*",
+    "build/icon.ico",
+    "build/icon.png",
+    "dist/**/*",
+    "main/**/*",
+    "public/gifs/**/*"
+  ],
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "start": "electron .",
     "build": "vite build",
+    "prepack": "npm run build",
     "dist": "vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
     "lint": "eslint src"
   },
   "dependencies": {
     "@imgly/background-removal-node": "^1.4.5",
+    "electron": "^33.2.1",
     "gifuct-js": "^2.1.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -22,7 +36,6 @@
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^9.1.0",
     "cross-env": "^10.1.0",
-    "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "typescript": "~5.8.3",
     "vite": "^5.4.11",
@@ -46,11 +59,28 @@
       }
     ],
     "win": {
-      "target": "nsis",
+      "target": ["nsis", "appx"],
       "icon": "build/icon.ico"
     },
+    "appx": {
+      "publisherDisplayName": "TrueTech AI",
+      "displayName": "PomodoroPet",
+      "identityName": "TrueTechAI.PomodoroPet",
+      "publisher": "CN=PLACEHOLDER-UPDATE-FROM-PARTNER-CENTER",
+      "applicationId": "PomodoroPet",
+      "backgroundColor": "#000011"
+    },
     "linux": {
-      "target": "AppImage"
+      "target": ["AppImage", "snap"],
+      "category": "Utility",
+      "icon": "build/icon.png"
+    },
+    "snap": {
+      "summary": "Arcade-style Pomodoro focus timer",
+      "description": "Pomodoro focus timer with animated GIF break screens and AI background removal. Persists through screen lock.",
+      "grade": "stable",
+      "confinement": "strict",
+      "plugs": ["default", "home", "removable-media"]
     },
     "mac": {
       "target": "dmg"
