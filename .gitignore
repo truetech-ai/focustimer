@@ -13,9 +13,7 @@ electron/node_modules/
 # Electron build icon (local file, regenerate from source)
 electron/build/icon.ico
 
-# Claude config
-.claude/
-electron/.claude/
+
 
 # Expo
 expo/node_modules/
