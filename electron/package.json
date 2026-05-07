@@ -1,6 +1,6 @@
 {
   "name": "pomodoropet",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "PomodoroPet - Arcade Focus Timer Desktop App",
   "main": "main/main.cjs",
   "private": false,
