@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, dialog, powerMonitor } = require('electron')
+const { app, BrowserWindow, ipcMain, Notification, dialog, powerMonitor, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
@@ -25,6 +25,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       webSecurity: false,   // allow file:// img/video src from localhost dev server
+      backgroundThrottling: false,  // keep setInterval firing at full rate when minimized
     },
   })
 
@@ -77,10 +78,16 @@ ipcMain.on('set-fullscreen', (_, flag) => {
   mainWindow?.setFullScreen(flag)
 })
 
-// Notifications
+// Notifications — clicking restores the window
 ipcMain.on('notify', (_, { title, body }) => {
-  if (Notification.isSupported()) new Notification({ title, body }).show()
+  if (!Notification.isSupported()) return
+  const notif = new Notification({ title, body })
+  notif.on('click', () => { mainWindow?.show(); mainWindow?.focus() })
+  notif.show()
 })
+
+// System beep — works even when window is minimized/background
+ipcMain.on('beep', () => shell.beep())
 
 // Restore minimized window when timer fires
 ipcMain.on('show-window', () => {
@@ -96,6 +103,22 @@ ipcMain.handle('pick-gif-files', async () => {
     properties: ['openFile', 'multiSelections'],
   })
   return canceled ? [] : filePaths
+})
+
+// Copy user-picked GIF into app userData/gifs/ so it persists even if source is moved/deleted
+function getGifLibraryDir() {
+  const dir = path.join(app.getPath('userData'), 'gifs')
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+ipcMain.handle('copy-gif', (_, srcPath) => {
+  const dir  = getGifLibraryDir()
+  const name = path.basename(srcPath)
+  const dest = path.join(dir, name)
+  // Avoid overwriting if same name already exists with same size
+  if (!fs.existsSync(dest)) fs.copyFileSync(srcPath, dest)
+  return dest
 })
 
 // Read local file as bytes (renderer fetch() can't access file:// on Chromium)
@@ -154,17 +177,3 @@ ipcMain.handle('cache-clear', () => {
   try { fs.readdirSync(dir).forEach(f => fs.unlinkSync(path.join(dir, f))) } catch {}
 })
 
-// List local GIFs (fallback)
-ipcMain.handle('list-gifs', () => {
-  const dir = DEV
-    ? path.join(__dirname, '../public/gifs')
-    : path.join(process.resourcesPath, 'public/gifs')
-  try {
-    return fs
-      .readdirSync(dir)
-      .filter(f => /\.(gif|webp)$/i.test(f))
-      .map(f => `./gifs/${f}`)
-  } catch {
-    return []
-  }
-})
