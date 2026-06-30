@@ -21,11 +21,10 @@ npm install
 npm run dev
 ```
 
-## Publish
-
+## Downlod the executable for windows and linux
 ```sh
-npm login
-npm publish
+    https://github.com/truetech-ai/focustimer/releases/v2.0.1
 ```
+
 
 The package runs `npm run build` before packing so the published app includes the latest Vite build.

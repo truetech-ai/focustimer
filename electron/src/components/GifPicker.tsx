@@ -50,12 +50,16 @@ export function GifPicker({ onSelect, onClose }: Props) {
     try {
       const paths = await window.api.pickGifFiles()
       if (!paths.length) return
+      // Copy each picked GIF into app userData/gifs/ for persistence
+      const copied = await Promise.all(
+        paths.map(async p => {
+          const dest = await window.api!.copyGif(p)
+          return { path: dest, name: p.split(/[\\/]/).pop() ?? p }
+        })
+      )
       setLibrary(prev => {
         const existing = new Set(prev.map(e => e.path))
-        const newEntries: SavedEntry[] = paths
-          .filter(p => !existing.has(p))
-          .map(p => ({ path: p, name: p.split(/[\\/]/).pop() ?? p }))
-        return [...prev, ...newEntries]
+        return [...prev, ...copied.filter(e => !existing.has(e.path))]
       })
     } finally {
       setAdding(false)
