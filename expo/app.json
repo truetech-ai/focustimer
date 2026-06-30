@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "PomodoroPet",
+    "slug": "pomodoropet",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "scheme": "pomodoropet",
+    "android": {
+      "package": "com.nihalrasekar.pomodoropet",
+      "permissions": [
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK"
+      ]
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

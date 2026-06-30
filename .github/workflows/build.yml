@@ -108,6 +108,9 @@ jobs:
         working-directory: electron
         run: npm run build
 
+      - name: Copy README for npm
+        run: cp README.md electron/README.md
+
       - name: Publish to npm
         working-directory: electron
         env:

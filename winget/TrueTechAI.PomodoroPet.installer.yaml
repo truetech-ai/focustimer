@@ -1,0 +1,11 @@
+PackageIdentifier: TrueTechAI.PomodoroPet
+PackageVersion: 2.0.0
+InstallerType: nullsoft
+Installers:
+  - Architecture: x64
+    # UPDATE: replace with actual SHA256 of the .exe from GitHub Releases
+    # Run: certutil -hashfile "PomodoroPet Setup 2.0.0.exe" SHA256
+    InstallerUrl: https://github.com/truetech-ai/focustimer/releases/download/v2.0.0/PomodoroPet.Setup.2.0.0.exe
+    InstallerSha256: PLACEHOLDER-RUN-certutil-hashfile-ON-THE-EXE
+ManifestType: installer
+ManifestVersion: 1.6.0

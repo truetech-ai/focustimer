@@ -1,0 +1,9 @@
+# Winget package version manifest
+# Submit to: https://github.com/microsoft/winget-pkgs
+# Path: manifests/t/TrueTechAI/PomodoroPet/2.0.0/
+
+PackageIdentifier: TrueTechAI.PomodoroPet
+PackageVersion: 2.0.0
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

@@ -5,6 +5,7 @@ Arcade-style Pomodoro focus timer with animated GIF break screens and AI backgro
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue)
 ![Electron](https://img.shields.io/badge/electron-33-blue)
 ![React](https://img.shields.io/badge/react-18-61dafb)
+[![npm](https://img.shields.io/npm/v/pomodoropet)](https://www.npmjs.com/package/pomodoropet)
 
 ## Features
 
@@ -13,14 +14,34 @@ Arcade-style Pomodoro focus timer with animated GIF break screens and AI backgro
 - Timer persists through Windows screen lock
 - Neon retro aesthetic
 
-## Download
+## Install
 
-Grab the latest installer from [Releases](../../releases).
+### Windows
+```powershell
+winget install TrueTechAI.PomodoroPet
+```
+or download installer from [Releases](https://github.com/truetech-ai/focustimer/releases/latest).
 
-- **Windows** — `PomodoroPet Setup x.x.x.exe`
-- **Linux** — `PomodoroPet-x.x.x.AppImage`
+> SmartScreen may warn "unrecognized app" — click **More info → Run anyway**. App is unsigned.
 
-> **Windows note:** SmartScreen may warn "unrecognized app" — click **More info → Run anyway**. App is unsigned.
+### Linux
+```bash
+# Snap
+snap install pomodoropet
+
+# AppImage — download from Releases
+chmod +x PomodoroPet-*.AppImage && ./PomodoroPet-*.AppImage
+```
+
+### Via npm (requires Node.js)
+```bash
+npx pomodoropet
+```
+or install globally:
+```bash
+npm install -g pomodoropet
+pomodoropet
+```
 
 ---
 

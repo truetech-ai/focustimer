@@ -1,0 +1,17 @@
+PackageIdentifier: TrueTechAI.PomodoroPet
+PackageVersion: 2.0.0
+PackageLocale: en-US
+Publisher: TrueTech AI
+PublisherUrl: https://github.com/truetech-ai
+PackageName: PomodoroPet
+PackageUrl: https://github.com/truetech-ai/focustimer
+License: MIT
+ShortDescription: Arcade-style Pomodoro focus timer with animated GIF break screens
+Description: PomodoroPet is a Pomodoro focus timer with animated GIF break screens, AI background removal, and timer persistence through Windows screen lock.
+Tags:
+  - pomodoro
+  - timer
+  - focus
+  - productivity
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0
