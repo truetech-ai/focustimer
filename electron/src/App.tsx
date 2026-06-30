@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { GifPicker, SelectedGif, toFileUrl } from './components/GifPicker'
 import { BreakCanvas } from './components/BreakCanvas'
 import { BgMode } from './hooks/useGifFrames'
+import { usePostureDetection } from './hooks/usePostureDetection'
+import { PostureCanvas } from './components/PostureCanvas'
+import { StatsModal } from './components/StatsModal'
 
 type TimerMode = 'work' | 'shortBreak' | 'longBreak'
 
@@ -37,9 +40,10 @@ declare global {
       maximize:       () => void
       close:          () => void
       notify:         (title: string, body: string) => void
-      listGifs:       () => Promise<string[]>
+      beep:           () => void
       setAlwaysOnTop: (flag: boolean) => void
       setFullscreen:  (flag: boolean) => void
+      copyGif:        (srcPath: string) => Promise<string>
       pickGifFiles:   () => Promise<string[]>
       readFile:       (path: string) => Promise<Uint8Array>
       removeBgFrame:  (data: Uint8Array) => Promise<Uint8Array>
@@ -68,12 +72,55 @@ function loadJson<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback } catch { return fallback }
 }
 
+function today() { return new Date().toISOString().slice(0, 10) }
+
+function loadDailySessions(): number {
+  try {
+    const raw = localStorage.getItem('ft_daily')
+    if (!raw) return 0
+    const { date, count } = JSON.parse(raw)
+    return date === today() ? count : 0
+  } catch { return 0 }
+}
+
+function saveDailySessions(n: number) {
+  localStorage.setItem('ft_daily', JSON.stringify({ date: today(), count: n }))
+}
+
+export interface DayStat { date: string; sessions: number; focusMin: number }
+
+export type Durations = { work: number; shortBreak: number; longBreak: number }
+const DEFAULT_DURATIONS: Durations = { work: 25, shortBreak: 5, longBreak: 15 }
+export function loadDurations(): Durations {
+  try {
+    const d = JSON.parse(localStorage.getItem('ft_durations') ?? 'null')
+    if (d?.work && d?.shortBreak && d?.longBreak) return d
+  } catch {}
+  return DEFAULT_DURATIONS
+}
+
+export function loadHistory(): DayStat[] {
+  try { return JSON.parse(localStorage.getItem('ft_history') ?? '[]') } catch { return [] }
+}
+
+function upsertHistory(sessions: number, focusMin: number) {
+  const t = today()
+  const h = loadHistory()
+  const idx = h.findIndex(e => e.date === t)
+  if (idx >= 0) { h[idx].sessions += sessions; h[idx].focusMin += focusMin }
+  else h.push({ date: t, sessions, focusMin })
+  const sorted = h.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30)
+  localStorage.setItem('ft_history', JSON.stringify(sorted))
+}
+
+
 export default function App() {
   // ── Timer state ────────────────────────────────────────────────
-  const [timeLeft, setTimeLeft]   = useState(MODES.work.duration)
+  const [timeLeft, setTimeLeft]   = useState(() => loadDurations().work * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [mode, setMode]           = useState<TimerMode>('work')
-  const [sessions, setSessions]   = useState(() => parseInt(localStorage.getItem('ft_sessions') ?? '0', 10))
+  const [sessions, setSessions]         = useState(() => parseInt(localStorage.getItem('ft_sessions') ?? '0', 10))
+  const [dailySessions, setDailySessions] = useState(() => loadDailySessions())
   const [showBreak, setShowBreak] = useState(false)
   const [gifFailed, setGifFailed] = useState(false)
   const [quote, setQuote]         = useState(() => pick(WORK_QUOTES))
@@ -99,11 +146,123 @@ export default function App() {
   const pendingBreakRef = useRef<TimerMode | null>(null)
 
   const [cacheCount, setCacheCount] = useState(0)
+  const [postureAlert, setPostureAlert] = useState(false)
+  const [showPostureView, setShowPostureView] = useState(false)
+  const [showStats, setShowStats]   = useState(false)
+  const [durations, setDurations]   = useState<Durations>(loadDurations)
+  const [postureSensitivity, setPostureSensitivity] = useState(
+    () => parseInt(localStorage.getItem('ft_posture_sens') ?? '5', 10)
+  )
+
+  const handlePostureAlert = useCallback(() => {
+    window.api?.notify('⚠ POSTURE ALERT', 'Bad posture for 30s — sit up straight!')
+    // System beep via main process — works even when window is minimized/hidden
+    window.api?.beep()
+    setPostureAlert(true)
+    // Restore and show the posture view so user can see their skeleton
+    window.api?.showWindow()
+    setShowPostureView(true)
+    autoShownPostureRef.current = true
+    // AudioContext fallback (may be suspended if window is in background)
+    try {
+      const ctx = new AudioContext()
+      const playBeeps = () => {
+        const beep = (t: number) => {
+          const osc  = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.type = 'sine'
+          osc.frequency.value = 880
+          gain.gain.setValueAtTime(0.35, t)
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+          osc.start(t)
+          osc.stop(t + 0.18)
+        }
+        beep(ctx.currentTime)
+        beep(ctx.currentTime + 0.25)
+      }
+      if (ctx.state === 'suspended') ctx.resume().then(playBeeps).catch(() => {})
+      else playBeeps()
+    } catch {}
+  }, [])
+
+  const { status: postureStatus, videoRef: postureVideoRef, landmarksRef: postureLandmarksRef } =
+    usePostureDetection(isRunning && mode === 'work', handlePostureAlert, postureSensitivity)
+
+  const handlePostureSensitivity = (v: number) => {
+    setPostureSensitivity(v)
+    localStorage.setItem('ft_posture_sens', String(v))
+  }
+
+  // Auto-dismiss posture alert after 8s
+  useEffect(() => {
+    if (!postureAlert) return
+    const t = setTimeout(() => setPostureAlert(false), 8000)
+    return () => clearTimeout(t)
+  }, [postureAlert])
+
+  // Posture status notifications — fire on state transitions, not repeatedly
+  const prevPostureRef      = useRef<typeof postureStatus>('off')
+  const awayTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const goodTimerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoShownPostureRef = useRef(false)  // true when we auto-opened the posture view
+
+  useEffect(() => {
+    const prev = prevPostureRef.current
+    prevPostureRef.current = postureStatus
+
+    // Cancel pending away-timer if user is no longer away
+    if (postureStatus !== 'away' && awayTimerRef.current) {
+      clearTimeout(awayTimerRef.current)
+      awayTimerRef.current = null
+    }
+
+    // Posture fixed → cancel any pending good-timer and start a new one
+    if (postureStatus === 'good' && autoShownPostureRef.current) {
+      if (goodTimerRef.current) clearTimeout(goodTimerRef.current)
+      goodTimerRef.current = setTimeout(() => {
+        // Still good after 4s — hide posture view and minimize
+        if (autoShownPostureRef.current) {
+          setShowPostureView(false)
+          autoShownPostureRef.current = false
+          window.api?.minimize()
+        }
+        goodTimerRef.current = null
+      }, 4000)
+    }
+
+    // Posture went bad again — cancel the pending minimize
+    if (postureStatus === 'bad' && goodTimerRef.current) {
+      clearTimeout(goodTimerRef.current)
+      goodTimerRef.current = null
+    }
+
+    if (postureStatus === prev) return  // no transition — no notification
+
+    if (postureStatus === 'error') {
+      window.api?.notify('📷 CAMERA STOPPED', 'Camera closed or disconnected. Posture tracking paused.')
+    } else if (postureStatus === 'denied') {
+      window.api?.notify('🚫 CAMERA DENIED', 'Allow camera access to enable posture tracking.')
+    } else if (postureStatus === 'away' && (prev === 'good' || prev === 'bad')) {
+      // Only notify if user WAS being tracked — not on first load
+      awayTimerRef.current = setTimeout(() => {
+        window.api?.notify('👀 SIT CLOSER', 'Posture not visible — move closer to camera.')
+        awayTimerRef.current = null
+      }, 30_000)
+    }
+  }, [postureStatus])
+
+  useEffect(() => () => {
+    if (awayTimerRef.current) clearTimeout(awayTimerRef.current)
+    if (goodTimerRef.current)  clearTimeout(goodTimerRef.current)
+  }, [])
 
   const endRef      = useRef<number | null>(null)
   const pausedAtRef = useRef<number | null>(null)
   const cfg    = MODES[mode]
-  const progress  = ((cfg.duration - timeLeft) / cfg.duration) * 100
+  const modeDuration = durations[mode] * 60
+  const progress  = ((modeDuration - timeLeft) / modeDuration) * 100
   const svgOffset = C - (progress / 100) * C
 
   // path passed to BreakCanvas/useGifFrames (raw OS path for IPC)
@@ -249,7 +408,7 @@ export default function App() {
 
   // ── Mode switching ─────────────────────────────────────────────
   const goMode = useCallback((m: TimerMode, auto = false, autoStart = false) => {
-    const dur = MODES[m].duration
+    const dur = durations[m] * 60
     if (autoStart) {
       endRef.current = Date.now() + dur * 1000
     } else {
@@ -267,7 +426,7 @@ export default function App() {
       setShowBreak(false)
       setQuote(pick(WORK_QUOTES))
     }
-  }, [selectedGif])
+  }, [selectedGif, durations])
 
   const onComplete = useCallback(() => {
     window.api?.showWindow()
@@ -275,6 +434,10 @@ export default function App() {
       const n = sessions + 1
       setSessions(n)
       localStorage.setItem('ft_sessions', String(n))
+      const d = loadDailySessions() + 1
+      setDailySessions(d)
+      saveDailySessions(d)
+      upsertHistory(1, durations.work)
       window.api?.notify('🎮 FOCUS COMPLETE!', 'Choose your break!')
       pendingBreakRef.current = 'shortBreak'   // default if countdown expires
       setWarnCount(15)
@@ -285,7 +448,7 @@ export default function App() {
       window.api?.notify('⏰ BREAK OVER!', 'Back to the grind, Player 1!')
       goMode('work', false, true)   // auto-start next work session
     }
-  }, [mode, sessions, goMode])
+  }, [mode, sessions, goMode, durations])
 
   // ── Controls ───────────────────────────────────────────────────
   const toggle = () => {
@@ -297,7 +460,7 @@ export default function App() {
   const reset = () => {
     setIsRunning(false)
     endRef.current = null
-    setTimeLeft(cfg.duration)
+    setTimeLeft(modeDuration)
     localStorage.removeItem('ft_timer_snapshot')
   }
 
@@ -442,6 +605,10 @@ export default function App() {
 
           {/* HUD */}
           <div className="hud">
+            <button className="btn-stats" onClick={() => setShowStats(true)}>
+              ◈ STATS
+            </button>
+            <span className="hud-sep">║</span>
             <div className="hud-item">
               <span className="hud-lbl">SCORE</span>
               <span className="hud-val">{String(sessions).padStart(4, '0')}</span>
@@ -455,6 +622,11 @@ export default function App() {
             <div className="hud-item">
               <span className="hud-lbl">SET</span>
               <span className="hud-val">{sessions % 4 + 1}/4</span>
+            </div>
+            <span className="hud-sep">║</span>
+            <div className="hud-item">
+              <span className="hud-lbl">TODAY</span>
+              <span className="hud-val">{String(dailySessions).padStart(2, '0')}</span>
             </div>
           </div>
 
@@ -523,6 +695,38 @@ export default function App() {
             </button>
             <button className="btn-sec" onClick={reset}>↺ RESET</button>
           </div>
+
+          {/* Posture status chip — only visible while focus timer is running */}
+          {isRunning && mode === 'work' && postureStatus !== 'off' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="posture-chip" data-status={postureStatus}>
+                {postureStatus === 'loading' && '◈ POSTURE: LOADING...'}
+                {postureStatus === 'good'    && '◈ POSTURE: OK'}
+                {postureStatus === 'bad'     && '◈ POSTURE: BAD!'}
+                {postureStatus === 'away'    && '◈ POSTURE: AWAY'}
+                {postureStatus === 'error'   && '◈ POSTURE: NO CAM'}
+                {postureStatus === 'denied'  && '◈ POSTURE: DENIED'}
+              </div>
+              {(postureStatus === 'good' || postureStatus === 'bad' || postureStatus === 'away') && (
+                <button className="btn-posture-view" onClick={() => setShowPostureView(true)}>
+                  ◈ VIEW
+                </button>
+              )}
+            </div>
+          )}
+          {isRunning && mode === 'work' && postureStatus !== 'off' && postureStatus !== 'loading' && (
+            <div className="tol-row" style={{ width: 'min(300px, 80vw)' }}>
+              <span className="tol-label">SENSITIVITY</span>
+              <input
+                type="range"
+                min={1} max={10}
+                value={postureSensitivity}
+                onChange={e => handlePostureSensitivity(Number(e.target.value))}
+                className="tol-slider"
+              />
+              <span className="tol-val">{postureSensitivity}</span>
+            </div>
+          )}
 
           {/* Tomatoes */}
           <div className="tomatoes">
@@ -707,12 +911,82 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Stats Modal ── */}
+      {showStats && (
+        <StatsModal
+          onClose={() => setShowStats(false)}
+          durations={durations}
+          onDurationsChange={(d) => {
+            setDurations(d)
+            localStorage.setItem('ft_durations', JSON.stringify(d))
+            if (!isRunning) setTimeLeft(d[mode] * 60)
+          }}
+        />
+      )}
+
       {/* ── GIF Picker Modal ── */}
       {showPicker && (
         <GifPicker
           onSelect={handleGifSelect}
           onClose={() => setShowPicker(false)}
         />
+      )}
+
+      {/* ── Posture View (fullscreen) ── */}
+      {showPostureView && (
+        <div className="posture-view-full">
+          {/* Top bar */}
+          <div className="posture-view-topbar">
+            <span className="posture-view-title">◈ POSTURE CAM</span>
+            <div
+              className="posture-view-time"
+              style={{ color: cfg.color, textShadow: `0 0 12px ${cfg.color}, 0 0 24px ${cfg.color}` }}
+            >
+              {fmt(timeLeft)}
+            </div>
+            <button
+              className="ov-win-btn ov-win-close"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              onClick={() => { setShowPostureView(false); autoShownPostureRef.current = false }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Canvas fills remaining space */}
+          <div className="posture-view-canvas-wrap">
+            <PostureCanvas
+              videoRef={postureVideoRef}
+              landmarksRef={postureLandmarksRef}
+              status={postureStatus}
+            />
+          </div>
+
+          {/* Status bar */}
+          <div className="posture-view-status" data-status={postureStatus}>
+            {postureStatus === 'good'    && '● POSTURE OK'}
+            {postureStatus === 'bad'     && '⚠ BAD POSTURE — SIT UP STRAIGHT!'}
+            {postureStatus === 'away'    && '○ NO PERSON DETECTED'}
+            {postureStatus === 'loading' && '... LOADING CAMERA'}
+          </div>
+        </div>
+      )}
+
+      {/* ── Posture Alert ── */}
+      {postureAlert && (
+        <div className="posture-alert" onClick={() => setPostureAlert(false)}>
+          <div className="posture-alert-box" onClick={e => e.stopPropagation()}>
+            <div className="posture-alert-icon">⚠</div>
+            <div className="posture-alert-title">BAD POSTURE!</div>
+            <div className="posture-alert-sub">
+              SIT UP STRAIGHT, PLAYER 1!<br />
+              BACK STRAIGHT ● SHOULDERS BACK
+            </div>
+            <button className="btn-posture-ok" onClick={() => setPostureAlert(false)}>
+              ✓ FIXED!
+            </button>
+          </div>
+        </div>
       )}
     </>
   )

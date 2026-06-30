@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PomodoroPet — Arcade Focus Timer with Posture AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #39ff14;
+      --cyan:   #00ffff;
+      --pink:   #ff1493;
+      --gold:   #ffd700;
+      --red:    #ff4444;
+      --bg:     #000011;
+      --font:   'Press Start 2P', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* ── CRT overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 999;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 40px;
+      background: rgba(0,0,17,0.92);
+      border-bottom: 1px solid #0e0e1e;
+      backdrop-filter: blur(8px);
+    }
+    .nav-logo { font-size: 10px; color: var(--green); text-shadow: 0 0 10px var(--green); letter-spacing: 3px; }
+    .nav-dl {
+      font-family: var(--font);
+      font-size: 8px;
+      padding: 10px 20px;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .nav-dl:hover { background: rgba(57,255,20,0.12); box-shadow: 0 0 20px rgba(57,255,20,0.4); }
+
+    /* ── SECTIONS ── */
+    section { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+
+    /* ── HERO ── */
+    #hero {
+      flex-direction: column;
+      background: radial-gradient(ellipse at 50% 40%, rgba(57,255,20,0.06) 0%, transparent 65%);
+      padding-top: 80px;
+      gap: 40px;
+    }
+
+    .hero-eyebrow {
+      font-size: 8px;
+      color: #333;
+      letter-spacing: 6px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s ease 0.2s forwards;
+    }
+
+    .hero-title {
+      font-size: clamp(22px, 5vw, 52px);
+      letter-spacing: 8px;
+      text-align: center;
+      color: var(--green);
+      text-shadow: 0 0 30px var(--green), 0 0 60px var(--green);
+      opacity: 0;
+      transform: translateY(30px);
+      animation: fadeUp 0.7s ease 0.4s forwards;
+      line-height: 1.6;
+    }
+
+    .hero-sub {
+      font-size: clamp(8px, 1.4vw, 13px);
+      color: #aaa;
+      letter-spacing: 3px;
+      text-align: center;
+      max-width: 600px;
+      line-height: 2.8;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s ease 0.6s forwards;
+    }
+
+    /* timer ring hero */
+    .hero-ring-wrap {
+      position: relative;
+      width: 220px; height: 220px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.3s forwards;
+    }
+    .hero-ring-wrap svg { position: absolute; top: 0; left: 0; }
+    .ring-bg   { fill: none; stroke: #0a0a1a; stroke-width: 8; }
+    .ring-prog {
+      fill: none; stroke: var(--green); stroke-width: 8;
+      stroke-linecap: butt;
+      stroke-dasharray: 628;
+      stroke-dashoffset: 628;
+      transform: rotate(-90deg); transform-origin: 50% 50%;
+      filter: drop-shadow(0 0 8px var(--green));
+      animation: ringFill 3s ease 1s forwards;
+    }
+    .ring-inner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    }
+    .ring-label { font-size: 6px; color: var(--green); letter-spacing: 2px; }
+    .ring-time  { font-size: 28px; color: var(--green); text-shadow: 0 0 20px var(--green); letter-spacing: 4px; }
+    .ring-status { font-size: 5px; color: #333; letter-spacing: 2px; }
+
+    .hero-cta {
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.9s forwards;
+    }
+
+    .btn-hero {
+      font-family: var(--font);
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 18px 36px;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+      cursor: pointer;
+      text-decoration: none;
+      text-shadow: 0 0 10px var(--green);
+      box-shadow: 0 0 30px rgba(57,255,20,0.3);
+      transition: all 0.15s;
+      animation: pulse-green 2s ease-in-out 2s infinite;
+    }
+    .btn-hero:hover { background: rgba(57,255,20,0.12); box-shadow: 0 0 50px rgba(57,255,20,0.5); }
+
+    .btn-hero-sec {
+      font-family: var(--font);
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 18px 36px;
+      background: transparent;
+      border: 2px solid #222;
+      color: #555;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-hero-sec:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    .hero-scroll-hint {
+      font-size: 6px;
+      color: #1a1a1a;
+      letter-spacing: 3px;
+      animation: blink 2s steps(1) infinite;
+    }
+
+    /* ── PROBLEM ── */
+    #problem {
+      background: radial-gradient(ellipse at 30% 50%, rgba(255,20,147,0.04) 0%, transparent 60%);
+    }
+    .problem-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      max-width: 1100px;
+      padding: 0 40px;
+      align-items: center;
+    }
+
+    .posture-demo {
+      display: flex; gap: 60px; align-items: flex-end; justify-content: center;
+    }
+
+    .figure-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .figure-label { font-size: 6px; letter-spacing: 2px; }
+
+    .stick-figure { width: 80px; height: 160px; }
+
+    /* bad posture figure — C-spine */
+    .bad-fig .spine   { transform-origin: 50% 0%; transform: rotate(-18deg) scaleY(0.85); }
+    .bad-fig .head    { transform: translate(-12px, 8px); }
+    .bad-fig .larm    { transform-origin: top left; transform: rotate(20deg); }
+    .bad-fig .rarm    { transform-origin: top right; transform: rotate(-20deg); }
+    .bad-fig .lleg    { transform: translate(-4px, 0); }
+    .bad-fig .rleg    { transform: translate(4px, 0); }
+
+    .fig-head   { fill: none; stroke-width: 2; stroke-linecap: round; }
+    .fig-bone   { stroke-width: 2.5; stroke-linecap: round; }
+    .bad-fig  .fig-head, .bad-fig  .fig-bone { stroke: var(--red); filter: drop-shadow(0 0 4px var(--red)); }
+    .good-fig .fig-head, .good-fig .fig-bone { stroke: var(--green); filter: drop-shadow(0 0 6px var(--green)); }
+
+    .problem-text { display: flex; flex-direction: column; gap: 24px; }
+    .problem-tag  { font-size: 7px; color: var(--pink); letter-spacing: 3px; text-shadow: 0 0 8px var(--pink); }
+    .problem-h    { font-size: clamp(14px, 2.5vw, 24px); line-height: 2; color: #fff; }
+    .problem-body { font-size: 8px; color: #444; line-height: 2.8; }
+
+    /* ── FEATURES shared ── */
+    .feat-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      max-width: 1100px;
+      padding: 0 40px;
+      align-items: center;
+    }
+    .feat-inner.rev { direction: rtl; }
+    .feat-inner.rev > * { direction: ltr; }
+
+    .feat-text { display: flex; flex-direction: column; gap: 20px; }
+    .feat-tag  { font-size: 7px; letter-spacing: 3px; }
+    .feat-h    { font-size: clamp(14px, 2.2vw, 22px); line-height: 2.2; }
+    .feat-body { font-size: 7px; color: #444; line-height: 3; }
+    .feat-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .pill {
+      font-size: 6px; letter-spacing: 1px;
+      padding: 5px 10px;
+      border: 1px solid #1a1a1a;
+      color: #333;
+    }
+
+    /* ── TIMER SECTION ── */
+    #timer-sec { background: radial-gradient(ellipse at 70% 50%, rgba(57,255,20,0.04) 0%, transparent 60%); }
+    .timer-feat-tag  { color: var(--green); text-shadow: 0 0 8px var(--green); }
+    .timer-feat-h    { color: var(--green); }
+
+    .timer-mock {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px;
+      padding: 32px;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid #0e0e1e;
+    }
+
+    .mock-tabs { display: flex; gap: 6px; }
+    .mock-tab {
+      font-family: var(--font); font-size: 6px;
+      padding: 6px 12px;
+      background: transparent; border: 1px solid #111; color: #2a2a2a;
+    }
+    .mock-tab.on { border-color: var(--green); color: var(--green); }
+
+    .mock-ring-wrap { position: relative; width: 180px; height: 180px; }
+    .mock-ring-wrap svg { position: absolute; top: 0; left: 0; }
+    .mock-ring-prog {
+      fill: none; stroke: var(--green); stroke-width: 6;
+      stroke-dasharray: 502;
+      stroke-dashoffset: 0;
+      transform: rotate(-90deg); transform-origin: 50% 50%;
+      filter: drop-shadow(0 0 6px var(--green));
+      transition: stroke-dashoffset 0.5s linear;
+    }
+    .mock-ring-inner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    }
+    .mock-time { font-size: 24px; color: var(--green); text-shadow: 0 0 16px var(--green); letter-spacing: 3px; }
+    .mock-status { font-size: 5px; color: #333; letter-spacing: 2px; }
+
+    .mock-controls { display: flex; gap: 8px; }
+    .mock-btn {
+      font-family: var(--font); font-size: 7px;
+      padding: 10px 18px;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+    }
+    .mock-btn-sec {
+      font-family: var(--font); font-size: 7px;
+      padding: 10px 16px;
+      background: transparent;
+      border: 2px solid #111; color: #333;
+    }
+
+    .tomatoes { display: flex; gap: 10px; font-size: 18px; }
+
+    /* ── POSTURE SECTION ── */
+    #posture-sec { background: radial-gradient(ellipse at 30% 50%, rgba(255,68,68,0.04) 0%, transparent 60%); }
+    .posture-feat-tag { color: var(--red); text-shadow: 0 0 8px var(--red); }
+
+    .posture-mock {
+      position: relative;
+      width: 340px; height: 360px;
+      background: #000011;
+      border: 2px solid #0e0e1e;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .cam-overlay {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 6px);
+      pointer-events: none;
+    }
+
+    .skeleton-stage {
+      position: relative;
+      width: 120px; height: 240px;
+    }
+
+    .sk-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transition: all 0.8s ease; }
+
+    .posture-chip-demo {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      font-size: 6px; letter-spacing: 2px;
+      padding: 4px 10px;
+      border: 1px solid var(--green);
+      color: var(--green);
+      white-space: nowrap;
+    }
+
+    .alert-flash {
+      position: absolute; inset: 0;
+      background: rgba(255,68,68,0.15);
+      border: 3px solid var(--red);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .alert-flash-title { font-size: 14px; color: var(--red); text-shadow: 0 0 14px var(--red); letter-spacing: 2px; }
+    .alert-flash-sub   { font-size: 7px; color: #888; letter-spacing: 2px; }
+    .alert-flash-btn   {
+      font-family: var(--font); font-size: 7px;
+      padding: 8px 18px;
+      border: 2px solid var(--green); color: var(--green);
+      background: transparent;
+    }
+
+    /* ── SKELETON SVG lines ── */
+    .sk-line { stroke-width: 3; stroke-linecap: round; fill: none; }
+    .sk-dot  { }
+    .sk-left  { stroke: var(--green); fill: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+    .sk-right { stroke: var(--cyan);  fill: var(--cyan);  filter: drop-shadow(0 0 4px var(--cyan)); }
+    .sk-mid   { stroke: rgba(255,255,255,0.6); fill: white; }
+
+    /* ── BREAK SECTION ── */
+    #break-sec { background: radial-gradient(ellipse at 70% 50%, rgba(0,255,255,0.03) 0%, transparent 60%); }
+    .break-feat-tag { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+    .break-feat-h   { color: var(--cyan); }
+
+    .break-mock {
+      position: relative;
+      width: 340px; height: 280px;
+      background: #000;
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 30px rgba(0,255,255,0.15);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .break-bg-text {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    }
+    .break-mode  { font-size: 11px; color: var(--cyan); text-shadow: 0 0 16px var(--cyan); letter-spacing: 4px; }
+    .break-timer { font-size: 40px; color: #fff; text-shadow: 0 0 20px var(--cyan); letter-spacing: 5px; }
+    .break-scan  {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px);
+    }
+
+    /* ── STATS SECTION ── */
+    #stats-sec { background: radial-gradient(ellipse at 50% 50%, rgba(255,215,0,0.04) 0%, transparent 60%); }
+    .stats-feat-tag { color: var(--gold); text-shadow: 0 0 8px var(--gold); }
+    .stats-feat-h   { color: var(--gold); }
+
+    .stats-mock {
+      width: 340px;
+      background: #00000f;
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 30px rgba(255,215,0,0.15);
+      overflow: hidden;
+    }
+    .stats-mock-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #0e0e1e;
+      font-size: 8px; color: var(--gold); text-shadow: 0 0 8px var(--gold);
+      letter-spacing: 3px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .stats-cards {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 1px; background: #0e0e1e;
+      border-bottom: 1px solid #0e0e1e;
+    }
+    .s-card {
+      background: #00000f;
+      padding: 14px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .s-card-val { font-size: 16px; color: var(--green); text-shadow: 0 0 10px var(--green); }
+    .s-card-lbl { font-size: 5px; color: #333; letter-spacing: 1px; text-align: center; }
+    .stats-chart-area { padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+    .chart-row { display: flex; align-items: center; gap: 8px; font-size: 6px; }
+    .chart-day { color: #333; width: 28px; }
+    .chart-bar-bg { flex: 1; height: 8px; background: #0a0a18; }
+    .chart-bar-fill {
+      height: 100%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      width: 0%;
+      transition: width 1.2s ease;
+    }
+    .chart-num { color: var(--green); width: 16px; text-align: right; }
+    .chart-today .chart-day { color: var(--gold); }
+    .chart-today .chart-bar-fill { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+    .chart-today .chart-num { color: var(--gold); }
+
+    /* ── DOWNLOAD CTA ── */
+    #cta-sec {
+      flex-direction: column; gap: 40px;
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 65%),
+        var(--bg);
+    }
+
+    .cta-pre  { font-size: 7px; color: #333; letter-spacing: 4px; }
+    .cta-h    {
+      font-size: clamp(18px, 3.5vw, 40px);
+      letter-spacing: 6px; text-align: center;
+      color: var(--green); text-shadow: 0 0 40px var(--green), 0 0 80px var(--green);
+    }
+    .cta-sub  { font-size: 8px; color: #333; letter-spacing: 2px; text-align: center; line-height: 3; }
+
+    .cta-btn {
+      font-family: var(--font);
+      font-size: 12px; letter-spacing: 3px;
+      padding: 22px 48px;
+      background: transparent;
+      border: 3px solid var(--green);
+      color: var(--green);
+      cursor: pointer;
+      text-decoration: none;
+      text-shadow: 0 0 14px var(--green);
+      box-shadow: 0 0 40px rgba(57,255,20,0.35);
+      animation: pulse-green 2s ease-in-out infinite;
+      transition: all 0.15s;
+    }
+    .cta-btn:hover {
+      background: rgba(57,255,20,0.1);
+      box-shadow: 0 0 70px rgba(57,255,20,0.6);
+    }
+
+    .cta-note { font-size: 7px; color: #1a1a1a; letter-spacing: 2px; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 30px 40px;
+      text-align: center;
+      font-size: 6px;
+      color: #1a1a1a;
+      letter-spacing: 2px;
+      border-top: 1px solid #0a0a18;
+    }
+
+    /* ── SCROLL REVEAL ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.from-left  { transform: translateX(-50px); }
+    .reveal.from-right { transform: translateX(50px); }
+    .reveal.visible {
+      opacity: 1;
+      transform: translate(0);
+    }
+
+    /* ── KEYFRAMES ── */
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes ringFill {
+      to { stroke-dashoffset: 100; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 30px rgba(57,255,20,0.35); }
+      50%       { box-shadow: 0 0 60px rgba(57,255,20,0.65); }
+    }
+
+    @keyframes flash-alert {
+      0%, 100% { opacity: 0; }
+      30%, 70%  { opacity: 1; }
+    }
+
+    @keyframes countUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .feat-inner, .problem-inner { grid-template-columns: 1fr; gap: 40px; }
+      .feat-inner.rev { direction: ltr; }
+      nav { padding: 12px 20px; }
+      .nav-logo { font-size: 7px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <span class="nav-logo">◈ POMODORO PET</span>
+    <a href="#DOWNLOAD_LINK_HERE" class="nav-dl">▶ DOWNLOAD</a>
+  </nav>
+
+  <!-- ══════════════════════════════════════ HERO -->
+  <section id="hero">
+    <div class="hero-eyebrow">◈ ARCADE FOCUS TIMER + POSTURE AI ◈</div>
+
+    <div class="hero-ring-wrap">
+      <svg width="220" height="220" viewBox="0 0 220 220">
+        <circle class="ring-bg"   cx="110" cy="110" r="100"/>
+        <circle class="ring-prog" cx="110" cy="110" r="100"/>
+      </svg>
+      <div class="ring-inner">
+        <div class="ring-label">FOCUS MODE</div>
+        <div class="ring-time" id="hero-time">25:00</div>
+        <div class="ring-status">○ IDLE</div>
+      </div>
+    </div>
+
+    <h1 class="hero-title">POMODORO PET</h1>
+    <p class="hero-sub">
+      FOCUS TIMER. POSTURE GUARD. ARCADE SOUL.<br/>
+      YOUR BACK WILL THANK YOU.
+    </p>
+
+    <div class="hero-cta">
+      <a href="#DOWNLOAD_LINK_HERE" class="btn-hero">▶ DOWNLOAD FREE</a>
+      <a href="#timer-sec" class="btn-hero-sec">SEE HOW IT WORKS</a>
+    </div>
+
+    <div class="hero-scroll-hint">▼ SCROLL TO CONTINUE ▼</div>
+  </section>
+
+  <!-- ══════════════════════════════════════ PROBLEM -->
+  <section id="problem">
+    <div class="problem-inner">
+
+      <div class="posture-demo reveal from-left">
+        <!-- BAD FIGURE -->
+        <div class="figure-wrap">
+          <svg class="stick-figure bad-fig" viewBox="0 0 80 160">
+            <!-- head -->
+            <circle class="fig-head" cx="36" cy="14" r="10"/>
+            <!-- neck -->
+            <line class="fig-bone" x1="36" y1="24" x2="40" y2="38"/>
+            <!-- shoulders -->
+            <line class="fig-bone" x1="20" y1="42" x2="60" y2="38"/>
+            <!-- spine curved -->
+            <path class="fig-bone" d="M 40 38 Q 55 70 50 100" fill="none"/>
+            <!-- arms -->
+            <line class="fig-bone" x1="20" y1="42" x2="12" y2="75"/>
+            <line class="fig-bone" x1="60" y1="38" x2="68" y2="71"/>
+            <!-- hips -->
+            <line class="fig-bone" x1="38" y1="100" x2="62" y2="100"/>
+            <!-- legs -->
+            <line class="fig-bone" x1="38" y1="100" x2="32" y2="148"/>
+            <line class="fig-bone" x1="62" y1="100" x2="68" y2="148"/>
+          </svg>
+          <span class="figure-label" style="color:var(--red)">C-SPINE ✗</span>
+        </div>
+
+        <!-- GOOD FIGURE -->
+        <div class="figure-wrap">
+          <svg class="stick-figure good-fig" viewBox="0 0 80 160">
+            <circle class="fig-head" cx="40" cy="14" r="10"/>
+            <line class="fig-bone" x1="40" y1="24" x2="40" y2="40"/>
+            <line class="fig-bone" x1="18" y1="44" x2="62" y2="44"/>
+            <line class="fig-bone" x1="40" y1="40" x2="40" y2="100"/>
+            <line class="fig-bone" x1="18" y1="44" x2="10" y2="80"/>
+            <line class="fig-bone" x1="62" y1="44" x2="70" y2="80"/>
+            <line class="fig-bone" x1="30" y1="100" x2="50" y2="100"/>
+            <line class="fig-bone" x1="30" y1="100" x2="24" y2="148"/>
+            <line class="fig-bone" x1="50" y1="100" x2="56" y2="148"/>
+          </svg>
+          <span class="figure-label" style="color:var(--green)">ALIGNED ✓</span>
+        </div>
+      </div>
+
+      <div class="problem-text reveal from-right">
+        <div class="problem-tag">◈ THE PROBLEM</div>
+        <h2 class="problem-h">HOURS AT LAPTOP<br/>= BROKEN BACK</h2>
+        <p class="problem-body">
+          C-shaped spine. Forward head posture.<br/>
+          Rounded shoulders. Sound familiar?<br/><br/>
+          PomodoroPet watches your posture<br/>
+          in real-time while you focus —<br/>
+          and alerts you before damage sets in.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════ TIMER -->
+  <section id="timer-sec">
+    <div class="feat-inner rev">
+
+      <div class="timer-mock reveal from-right">
+        <div class="mock-tabs">
+          <button class="mock-tab on">WORK</button>
+          <button class="mock-tab">SHORT</button>
+          <button class="mock-tab">LONG</button>
+        </div>
+        <div class="mock-ring-wrap">
+          <svg width="180" height="180" viewBox="0 0 180 180">
+            <circle fill="none" stroke="#111" stroke-width="6" cx="90" cy="90" r="80"/>
+            <circle class="mock-ring-prog" cx="90" cy="90" r="80"/>
+          </svg>
+          <div class="mock-ring-inner">
+            <div style="font-size:6px;color:var(--green);letter-spacing:2px">FOCUS MODE</div>
+            <div class="mock-time" id="mock-timer">24:33</div>
+            <div class="mock-status">● RUNNING</div>
+          </div>
+        </div>
+        <div class="mock-controls">
+          <button class="mock-btn">⏸ PAUSE</button>
+          <button class="mock-btn-sec">↺ RESET</button>
+        </div>
+        <div class="tomatoes">
+          <span style="filter:drop-shadow(0 0 6px #ff5733)">🍅</span>
+          <span style="filter:drop-shadow(0 0 6px #ff5733)">🍅</span>
+          <span style="opacity:0.2">🍅</span>
+          <span style="opacity:0.2">🍅</span>
+        </div>
+      </div>
+
+      <div class="feat-text reveal from-left">
+        <div class="feat-tag timer-feat-tag">◈ FOCUS TIMER</div>
+        <h2 class="feat-h timer-feat-h">25 MINUTES.<br/>ZERO DISTRACTION.</h2>
+        <p class="feat-body">
+          Classic Pomodoro technique.<br/>
+          Work 25. Break 5. Long break 15.<br/>
+          Track sessions, sets, and daily reps.<br/>
+          Arcade HUD keeps score as you grind.
+        </p>
+        <div class="feat-pills">
+          <span class="pill" style="border-color:#333;color:#555">25 MIN FOCUS</span>
+          <span class="pill" style="border-color:#333;color:#555">5 MIN SHORT BREAK</span>
+          <span class="pill" style="border-color:#333;color:#555">15 MIN LONG BREAK</span>
+          <span class="pill" style="border-color:#333;color:#555">SESSION TRACKING</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════ POSTURE -->
+  <section id="posture-sec">
+    <div class="feat-inner">
+
+      <div class="posture-mock reveal from-left" id="posture-mock">
+        <div class="cam-overlay"></div>
+
+        <div class="skeleton-stage">
+          <svg id="sk-bad" class="sk-svg" viewBox="0 0 120 240" style="opacity:1">
+            <!-- bad posture skeleton (C-shape) -->
+            <circle class="sk-dot sk-mid" cx="60" cy="20" r="6"/>
+            <line class="sk-line sk-mid" x1="60" y1="26" x2="64" y2="48"/>
+            <line class="sk-line sk-mid" x1="64" y1="48" x2="40" y2="55"/>
+            <line class="sk-line sk-mid" x1="64" y1="48" x2="88" y2="52"/>
+            <path class="sk-line sk-mid" d="M64 48 Q80 90 76 130" fill="none"/>
+            <line class="sk-line sk-left"  x1="40" y1="55" x2="28" y2="95"/>
+            <line class="sk-line sk-right" x1="88" y1="52" x2="100" y2="92"/>
+            <line class="sk-line sk-mid"  x1="64" y1="130" x2="88" y2="130"/>
+            <line class="sk-line sk-left"  x1="64" y1="130" x2="54" y2="195"/>
+            <line class="sk-line sk-right" x1="88" y1="130" x2="96" y2="195"/>
+            <circle class="sk-dot sk-left"  cx="40" cy="55" r="4"/>
+            <circle class="sk-dot sk-right" cx="88" cy="52" r="4"/>
+          </svg>
+
+          <svg id="sk-good" class="sk-svg" viewBox="0 0 120 240" style="opacity:0;transition:opacity 0.8s">
+            <!-- good posture skeleton (straight) -->
+            <circle class="sk-dot sk-mid" cx="60" cy="20" r="6"/>
+            <line class="sk-line sk-mid" x1="60" y1="26" x2="60" y2="50"/>
+            <line class="sk-line sk-mid" x1="38" y1="55" x2="82" y2="55"/>
+            <line class="sk-line sk-mid" x1="60" y1="50" x2="60" y2="128"/>
+            <line class="sk-line sk-left"  x1="38" y1="55" x2="24" y2="96"/>
+            <line class="sk-line sk-right" x1="82" y1="55" x2="96" y2="96"/>
+            <line class="sk-line sk-mid"  x1="46" y1="128" x2="74" y2="128"/>
+            <line class="sk-line sk-left"  x1="46" y1="128" x2="38" y2="196"/>
+            <line class="sk-line sk-right" x1="74" y1="128" x2="82" y2="196"/>
+            <circle class="sk-dot sk-left"  cx="38" cy="55" r="4"/>
+            <circle class="sk-dot sk-right" cx="82" cy="55" r="4"/>
+          </svg>
+        </div>
+
+        <div class="posture-chip-demo" id="posture-chip-demo">◈ POSTURE: BAD!</div>
+
+        <div class="alert-flash" id="alert-flash">
+          <div class="alert-flash-title">⚠ BAD POSTURE!</div>
+          <div class="alert-flash-sub">SIT UP STRAIGHT, PLAYER 1!</div>
+          <button class="alert-flash-btn">✓ FIXED!</button>
+        </div>
+      </div>
+
+      <div class="feat-text reveal from-right">
+        <div class="feat-tag posture-feat-tag">◈ POSTURE AI</div>
+        <h2 class="feat-h" style="color:#fff">WEBCAM WATCHES<br/>YOUR SPINE.</h2>
+        <p class="feat-body">
+          MediaPipe AI tracks shoulders,<br/>
+          ears, and head position in real-time.<br/><br/>
+          30 seconds of bad posture →<br/>
+          alert fires. Double beep + overlay.<br/><br/>
+          Tune sensitivity for your<br/>
+          camera distance and body type.
+        </p>
+        <div class="feat-pills">
+          <span class="pill" style="border-color:var(--red);color:var(--red)">HEAD DROP DETECT</span>
+          <span class="pill" style="border-color:var(--red);color:var(--red)">SHOULDER TRACK</span>
+          <span class="pill" style="border-color:var(--red);color:var(--red)">EAR ALIGNMENT</span>
+          <span class="pill" style="border-color:#333;color:#555">RUNS LOCALLY</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════ BREAK -->
+  <section id="break-sec">
+    <div class="feat-inner rev">
+
+      <div class="break-mock reveal from-right">
+        <div class="break-scan"></div>
+        <div class="break-bg-text">
+          <div class="break-mode">SHORT BREAK</div>
+          <div class="break-timer" id="break-timer">05:00</div>
+          <div style="font-size:7px;color:#333;letter-spacing:2px">RECHARGE YOUR POWER BAR!</div>
+        </div>
+      </div>
+
+      <div class="feat-text reveal from-left">
+        <div class="feat-tag break-feat-tag">◈ BREAK SCREENS</div>
+        <h2 class="feat-h break-feat-h">YOUR GIFS.<br/>FULL SCREEN.</h2>
+        <p class="feat-body">
+          Pick any GIF from your device.<br/>
+          It plays fullscreen during breaks.<br/><br/>
+          AI background removal strips<br/>
+          the BG so your character floats.<br/>
+          Color key mode for pixel art.<br/><br/>
+          App stays on top. No escape.
+        </p>
+        <div class="feat-pills">
+          <span class="pill" style="border-color:var(--cyan);color:var(--cyan)">LOCAL GIF LIBRARY</span>
+          <span class="pill" style="border-color:var(--cyan);color:var(--cyan)">AI BG REMOVAL</span>
+          <span class="pill" style="border-color:var(--cyan);color:var(--cyan)">COLOR KEY</span>
+          <span class="pill" style="border-color:#333;color:#555">ALWAYS ON TOP</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════ STATS -->
+  <section id="stats-sec">
+    <div class="feat-inner">
+
+      <div class="stats-mock reveal from-left" id="stats-mock">
+        <div class="stats-mock-header">
+          <span>◈ STATS</span>
+          <span style="font-size:6px;color:#ff8800">🔒 PREMIUM</span>
+        </div>
+        <div class="stats-cards">
+          <div class="s-card">
+            <div class="s-card-val" id="sc-total">0</div>
+            <div class="s-card-lbl">ALL-TIME SESSIONS</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-val" id="sc-hours" style="color:var(--cyan);text-shadow:0 0 10px var(--cyan)">0h</div>
+            <div class="s-card-lbl">TOTAL FOCUSED</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-val" id="sc-streak" style="color:var(--pink);text-shadow:0 0 10px var(--pink)">0🔥</div>
+            <div class="s-card-lbl">DAY STREAK</div>
+          </div>
+          <div class="s-card">
+            <div class="s-card-val" id="sc-best" style="color:var(--gold);text-shadow:0 0 10px var(--gold)">0</div>
+            <div class="s-card-lbl">BEST DAY</div>
+          </div>
+        </div>
+        <div class="stats-chart-area" id="stats-chart">
+          <div class="chart-row"><span class="chart-day">MON</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="60"></div></div><span class="chart-num">6</span></div>
+          <div class="chart-row"><span class="chart-day">TUE</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="40"></div></div><span class="chart-num">4</span></div>
+          <div class="chart-row"><span class="chart-day">WED</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="80"></div></div><span class="chart-num">8</span></div>
+          <div class="chart-row"><span class="chart-day">THU</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="30"></div></div><span class="chart-num">3</span></div>
+          <div class="chart-row"><span class="chart-day">FRI</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="90"></div></div><span class="chart-num">9</span></div>
+          <div class="chart-row"><span class="chart-day">SAT</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="20"></div></div><span class="chart-num">2</span></div>
+          <div class="chart-row chart-today"><span class="chart-day">TODAY</span><div class="chart-bar-bg"><div class="chart-bar-fill" data-w="50"></div></div><span class="chart-num">5</span></div>
+        </div>
+      </div>
+
+      <div class="feat-text reveal from-right">
+        <div class="feat-tag stats-feat-tag">◈ PREMIUM STATS</div>
+        <h2 class="feat-h stats-feat-h">TRACK YOUR<br/>FOCUS JOURNEY.</h2>
+        <p class="feat-body">
+          30-day session history.<br/>
+          Daily streaks. Best day records.<br/>
+          Total hours deep-worked.<br/><br/>
+          Unlock with one license code.<br/>
+          No subscription. Ever.
+        </p>
+        <div class="feat-pills">
+          <span class="pill" style="border-color:var(--gold);color:var(--gold)">7-DAY BAR CHART</span>
+          <span class="pill" style="border-color:var(--gold);color:var(--gold)">STREAK TRACKING</span>
+          <span class="pill" style="border-color:var(--gold);color:var(--gold)">30-DAY HISTORY</span>
+          <span class="pill" style="border-color:#333;color:#555">ONE-TIME UNLOCK</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════ CTA -->
+  <section id="cta-sec">
+    <div class="cta-pre reveal">◈ FREE DOWNLOAD ◈</div>
+    <h2 class="cta-h reveal">GET POMODORO PET</h2>
+    <p class="cta-sub reveal">
+      WINDOWS 10 / 11 · NO SIGNUP · NO SUBSCRIPTION<br/>
+      OPEN SOURCE · POSTURE AI RUNS LOCALLY
+    </p>
+    <a href="#DOWNLOAD_LINK_HERE" class="cta-btn reveal">▶ DOWNLOAD FREE · WINDOWS</a>
+    <div class="cta-note reveal">PREMIUM STATS UNLOCK AVAILABLE IN-APP</div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>◈ POMODORO PET ◈ &nbsp;·&nbsp; BUILT WITH ELECTRON + REACT + MEDIAPIPE &nbsp;·&nbsp; 2025</p>
+  </footer>
+
+  <script>
+    // ── Scroll reveal ──────────────────────────────
+    const reveals = document.querySelectorAll('.reveal')
+    const revealObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); revealObs.unobserve(e.target) }
+      })
+    }, { threshold: 0.2 })
+    reveals.forEach(el => revealObs.observe(el))
+
+    // ── Hero timer countdown animation ────────────
+    let heroSec = 25 * 60
+    const heroEl = document.getElementById('hero-time')
+    setInterval(() => {
+      if (heroSec > 0) heroSec--
+      const m = String(Math.floor(heroSec / 60)).padStart(2, '0')
+      const s = String(heroSec % 60).padStart(2, '0')
+      heroEl.textContent = `${m}:${s}`
+    }, 1000)
+
+    // ── Mock timer countdown ───────────────────────
+    let mockSec = 24 * 60 + 33
+    const mockEl = document.getElementById('mock-timer')
+    const mockRing = document.querySelector('.mock-ring-prog')
+    const MOCK_TOTAL = 25 * 60
+    setInterval(() => {
+      if (mockSec > 0) mockSec--
+      const m = String(Math.floor(mockSec / 60)).padStart(2, '0')
+      const s = String(mockSec % 60).padStart(2, '0')
+      mockEl.textContent = `${m}:${s}`
+      const pct = mockSec / MOCK_TOTAL
+      mockRing.style.strokeDashoffset = 502 * (1 - pct)
+    }, 1000)
+
+    // ── Break timer countdown ──────────────────────
+    let breakSec = 5 * 60
+    const breakEl = document.getElementById('break-timer')
+    setInterval(() => {
+      if (breakSec > 0) breakSec--
+      else breakSec = 5 * 60
+      const m = String(Math.floor(breakSec / 60)).padStart(2, '0')
+      const s = String(breakSec % 60).padStart(2, '0')
+      breakEl.textContent = `${m}:${s}`
+    }, 1000)
+
+    // ── Posture demo animation ─────────────────────
+    const skBad   = document.getElementById('sk-bad')
+    const skGood  = document.getElementById('sk-good')
+    const chip    = document.getElementById('posture-chip-demo')
+    const flash   = document.getElementById('alert-flash')
+
+    let postureState = 'bad'
+    let postureTimer = null
+
+    const postureObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) runPostureDemo()
+        else { clearTimeout(postureTimer); resetPosture() }
+      })
+    }, { threshold: 0.4 })
+    postureObs.observe(document.getElementById('posture-mock'))
+
+    function resetPosture() {
+      skBad.style.opacity  = '1'
+      skGood.style.opacity = '0'
+      chip.textContent     = '◈ POSTURE: BAD!'
+      chip.style.borderColor = 'var(--red)'
+      chip.style.color       = 'var(--red)'
+      flash.style.opacity  = '0'
+      flash.style.transition = ''
+      postureState = 'bad'
+    }
+
+    function runPostureDemo() {
+      resetPosture()
+      // After 2s show alert flash
+      postureTimer = setTimeout(() => {
+        flash.style.transition = 'opacity 0.4s'
+        flash.style.opacity = '1'
+
+        // After 2s more, fix posture
+        postureTimer = setTimeout(() => {
+          flash.style.opacity = '0'
+          skBad.style.opacity  = '0'
+          skGood.style.opacity = '1'
+          chip.textContent = '◈ POSTURE: OK'
+          chip.style.borderColor = 'var(--green)'
+          chip.style.color       = 'var(--green)'
+
+          // Loop after 3s
+          postureTimer = setTimeout(runPostureDemo, 3000)
+        }, 2000)
+      }, 2500)
+    }
+
+    // ── Stats count-up animation ───────────────────
+    function animateCount(el, target, suffix = '', duration = 1200) {
+      let start = null
+      function step(ts) {
+        if (!start) start = ts
+        const prog = Math.min((ts - start) / duration, 1)
+        const val  = Math.round(prog * target)
+        el.textContent = val + suffix
+        if (prog < 1) requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    }
+
+    let statsAnimated = false
+    const statsObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !statsAnimated) {
+          statsAnimated = true
+          animateCount(document.getElementById('sc-total'),  142)
+          animateCount(document.getElementById('sc-hours'),  59,  'h', 1400)
+          animateCount(document.getElementById('sc-streak'), 12,  '🔥', 1000)
+          animateCount(document.getElementById('sc-best'),   14,  '', 900)
+          // grow bars
+          setTimeout(() => {
+            document.querySelectorAll('.chart-bar-fill').forEach(bar => {
+              bar.style.width = bar.dataset.w + '%'
+            })
+          }, 300)
+        }
+      })
+    }, { threshold: 0.3 })
+    statsObs.observe(document.getElementById('stats-mock'))
+  </script>
+</body>
+</html>

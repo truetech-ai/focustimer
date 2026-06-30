@@ -1,6 +1,6 @@
 {
   "name": "pomodoropet",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "PomodoroPet - Arcade Focus Timer Desktop App",
   "main": "main/main.cjs",
   "private": false,
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@imgly/background-removal-node": "^1.4.5",
+    "@mediapipe/tasks-vision": "^0.10.35",
     "gifuct-js": "^2.1.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -49,17 +50,13 @@
     },
     "files": [
       "dist/**/*",
-      "main/**/*",
-      "public/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "public/gifs",
-        "to": "public/gifs"
-      }
+      "main/**/*"
     ],
     "win": {
-      "target": ["nsis", "appx"],
+      "target": [
+        "nsis",
+        "appx"
+      ],
       "icon": "build/icon.ico"
     },
     "appx": {
@@ -71,7 +68,10 @@
       "backgroundColor": "#000011"
     },
     "linux": {
-      "target": ["AppImage", "snap"],
+      "target": [
+        "AppImage",
+        "snap"
+      ],
       "category": "Utility",
       "icon": "build/icon.png"
     },
@@ -80,7 +80,11 @@
       "description": "Pomodoro focus timer with animated GIF break screens and AI background removal. Persists through screen lock.",
       "grade": "stable",
       "confinement": "strict",
-      "plugs": ["default", "home", "removable-media"]
+      "plugs": [
+        "default",
+        "home",
+        "removable-media"
+      ]
     },
     "mac": {
       "target": "dmg"
