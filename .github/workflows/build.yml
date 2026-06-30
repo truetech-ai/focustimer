@@ -87,32 +87,3 @@ jobs:
             echo "No .snap file found, skipping upload"
           fi
 
-  publish-npm:
-    runs-on: ubuntu-latest
-    needs: [build-windows]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
-          cache-dependency-path: electron/package-lock.json
-
-      - name: Install dependencies
-        working-directory: electron
-        run: npm ci
-
-      - name: Build
-        working-directory: electron
-        run: npm run build
-
-      - name: Copy README for npm
-        run: cp README.md electron/README.md
-
-      - name: Publish to npm
-        working-directory: electron
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
