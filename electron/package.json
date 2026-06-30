@@ -69,22 +69,10 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "snap"
+        "AppImage"
       ],
       "category": "Utility",
       "icon": "build/icon.png"
-    },
-    "snap": {
-      "summary": "Arcade-style Pomodoro focus timer",
-      "description": "Pomodoro focus timer with animated GIF break screens and AI background removal. Persists through screen lock.",
-      "grade": "stable",
-      "confinement": "strict",
-      "plugs": [
-        "default",
-        "home",
-        "removable-media"
-      ]
     },
     "mac": {
       "target": "dmg"
